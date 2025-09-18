@@ -7,19 +7,53 @@ class FirestoreService {
   // User operations
   Future<String> createUser(String name) async {
     try {
-      DocumentReference userDoc = await _firestore.collection('users').add({
-        'name': name,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      
-      // Save user session locally
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('userId', userDoc.id);
-      await prefs.setString('userName', name);
-      
-      return userDoc.id;
+      // Check if a user with the same name already exists
+      QuerySnapshot existingUsers = await _firestore
+          .collection('users')
+          .where('name', isEqualTo: name)
+          .limit(1) // Optimization: we only need to know if at least one exists
+          .get();
+
+      if (existingUsers.docs.isNotEmpty) {
+        // Username already exists, return the existing user's ID
+        // You might want to log them in or handle this case as per your app's logic
+        String existingUserId = existingUsers.docs.first.id;
+
+        // Optionally, update SharedPreferences for the existing user
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('userId', existingUserId);
+        await prefs.setString('userName', name);
+
+        return existingUserId;
+      } else {
+        // Username does not exist, create a new user
+        DocumentReference userDoc = await _firestore.collection('users').add({
+          'name': name,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // Save user session locally
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('userId', userDoc.id);
+        await prefs.setString('userName', name);
+
+        return userDoc.id;
+      }
     } catch (e) {
-      throw Exception('Failed to create user: $e');
+      throw Exception('Failed to create or get user: $e');
+    }
+  }
+
+  // Add this to your FirestoreService
+  Future<bool> doesRoomExist(String roomId) async {
+    try {
+      DocumentSnapshot doc = await _firestore
+          .collection('rooms')
+          .doc(roomId)
+          .get();
+      return doc.exists;
+    } catch (e) {
+      return false;
     }
   }
 

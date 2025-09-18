@@ -7,10 +7,10 @@ class RoomDetailScreen extends StatefulWidget {
   final String roomName;
 
   const RoomDetailScreen({
-    Key? key,
+    super.key,
     required this.roomId,
     required this.roomName,
-  }) : super(key: key);
+  });
 
   @override
   RoomDetailScreenState createState() => RoomDetailScreenState();
@@ -26,6 +26,58 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
     _playerNameController.dispose();
     _pointsController.dispose();
     super.dispose();
+  }
+
+  // Add this method to RoomDetailScreenState
+  _shareRoomLink() {
+    final roomUrl = 'https://chess-test-f33d1.web.app/rooms/${widget.roomId}';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Share Room'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Share this link with players to let them view the leaderboard:'),
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SelectableText(
+                roomUrl,
+                style: TextStyle(fontFamily: 'monospace'),
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Players can view scores without making changes',
+              style: TextStyle(color: Colors.green, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Copy to clipboard (you'll need to add clipboard package)
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Link copied to clipboard!')),
+              );
+            },
+            child: Text('Copy Link'),
+          ),
+        ],
+      ),
+    );
   }
 
   _showAddPlayerDialog() {
@@ -126,7 +178,7 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
     }
 
     final points = int.tryParse(pointsText);
-    if (points == null) {
+    if (points == null || points < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please enter a valid number')),
       );
@@ -203,7 +255,7 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
         icon = Icons.emoji_events;
         break;
       default:
-        color = Colors.blue;
+        color = Colors.green;
         icon = Icons.person;
     }
 
@@ -221,30 +273,68 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.roomName),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.share),
+            onPressed: _shareRoomLink,
+            tooltip: 'Share Room',
+          ),
+        ],
       ),
       body: Column(
         children: [
           Container(
             padding: EdgeInsets.all(16),
             width: double.infinity,
-            color: Colors.blue.withOpacity(0.1),
-            child: Column(
-              children: [
-                Text(
-                  'Room: ${widget.roomName}',
-                  style: Theme.of(context).textTheme.titleLarge,
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'ID: ${widget.roomId}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                  textAlign: TextAlign.center,
-                ),
-              ],
+            color: Color(0xFFECFAEB),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _firestoreService.streamRoomPlayers(widget.roomId),
+              builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                  final topPlayer = snapshot.data!.docs.first;
+                  final topPlayerData = topPlayer.data() as Map<String, dynamic>;
+                  final kingName = topPlayerData['name'] ?? 'Unknown Player';
+
+                  return Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'The King of The Room is: ',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          Text(
+                            kingName,
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.amber[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 8),
+                    ],
+                  );
+                } else {
+                  return Column(
+                    children: [
+                      Text(
+                        'No King Yet - Add Players!',
+                        style: Theme.of(context).textTheme.titleLarge,
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 4),
+                    ],
+                  );
+                }
+              },
             ),
           ),
+
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _firestoreService.streamRoomPlayers(widget.roomId),
@@ -298,7 +388,7 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                         title: Text(
                           playerData['name'] ?? 'Unknown Player',
                           style: TextStyle(
-                            fontWeight: rank <= 3 ? FontWeight.bold : FontWeight.normal,
+                            fontWeight:FontWeight.bold ,
                           ),
                         ),
                         subtitle: Text('Rank #$rank'),

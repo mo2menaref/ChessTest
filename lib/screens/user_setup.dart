@@ -53,53 +53,71 @@ class UserSetupScreenState extends State<UserSetupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Welcome'),
+        title: Text('Welcome',style: TextStyle(fontSize: 30,fontWeight: FontWeight.bold),),
         centerTitle: true,
       ),
       body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        padding: EdgeInsets.all(100.0),
+        child: ListView(
           children: [
-            Icon(
-              Icons.person_add,
-              size: 80,
-              color: Colors.blue,
-            ),
-            SizedBox(height: 32),
-            Text(
-              'Enter Your Name',
-              style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 16),
-            TextField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: 'Your Name',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
-              ),
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _createUser(),
-            ),
-            SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _createUser,
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            Column(
+              children: [
+                Icon(
+                  Icons.person_add,
+                  size: 80,
+                  color: Colors.green,
                 ),
-              ),
-              child: _isLoading
-                  ? CircularProgressIndicator(color: Colors.white)
-                  : Text(
-                      'Continue',
-                      style: TextStyle(fontSize: 16),
+                SizedBox(height: 32),
+                Text(
+                  'Enter Your Name',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 30),
+                Align(
+                  alignment: Alignment.center,
+                  child:  SizedBox(
+                    width: 500,
+                    child: TextField(
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Your Name',
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                              width: 2
+                          ),
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        prefixIcon: Icon(Icons.person),
+                      ),
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _createUser(),
                     ),
+                  ),
+                ),
+                SizedBox(height: 100),
+                SizedBox(
+                  width: 200,
+                  child:ElevatedButton(
+                    onPressed: _isLoading ? null : _createUser,
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      backgroundColor: Color(0xAA7b9c79),
+                    ),
+                    child: _isLoading
+                        ? CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                      'Continue',
+                      style: TextStyle(fontSize: 16,color: Color(0xFF152914)),
+                    ),
+                  ),
+                ),
+              ],
             ),
+
           ],
         ),
       ),
