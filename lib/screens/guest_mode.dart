@@ -17,6 +17,7 @@ class GuestRoomViewScreen extends StatefulWidget {
 class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   Map<String, dynamic>? roomData;
+  Map<String, dynamic>? roomSelections;
   bool isLoading = true;
   String? error;
 
@@ -38,8 +39,12 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
         return;
       }
 
+      // Get room selections
+      Map<String, dynamic>? selections = await _firestoreService.getRoomSelections(widget.roomId);
+
       setState(() {
         roomData = roomDoc.data() as Map<String, dynamic>?;
+        roomSelections = selections;
         isLoading = false;
       });
     } catch (e) {
@@ -68,7 +73,7 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
         icon = Icons.emoji_events;
         break;
       default:
-        color = Colors.blue;
+        color = Colors.green;
         icon = Icons.person;
     }
 
@@ -78,6 +83,49 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
       child: rank <= 3
           ? Icon(icon, color: Colors.white, size: 20)
           : Text('$rank', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  // Method to get player name by ID
+  String _getPlayerNameById(List<QueryDocumentSnapshot> players, String? playerId) {
+    if (playerId == null) return 'No selection';
+
+    try {
+      final player = players.firstWhere((p) => p.id == playerId);
+      final playerData = player.data() as Map<String, dynamic>;
+      return playerData['name'] ?? 'Unknown Player';
+    } catch (e) {
+      return 'Player not found';
+    }
+  }
+
+  // Method to build selection display (like dropdown but as text)
+  Widget _buildSelectionDisplay(String label, String playerName) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+        SizedBox(height: 8),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          width: double.infinity,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey),
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.white,
+          ),
+          child: Text(
+            playerName,
+            style: TextStyle(
+              fontSize: 16,
+              color: playerName == 'No selection' ? Colors.grey : Colors.black87,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -123,10 +171,12 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                 Icon(Icons.visibility, color: Color(0xFFECFAEB)),
                 SizedBox(width: 8),
                 Text(
-                  'Viewing: ${roomData!['name'] ?? 'Room'}',style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 25,
-                    fontWeight: FontWeight.bold),
+                  'Viewing: ${roomData!['name'] ?? 'Room'}',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 25,
+                      fontWeight: FontWeight.bold
+                  ),
                 ),
               ],
             ),
@@ -155,7 +205,10 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
               stream: _firestoreService.streamRoomPlayers(widget.roomId),
               builder: (context, snapshot) {
                 if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                  final topPlayer = snapshot.data!.docs.first;
+                  final allPlayers = snapshot.data!.docs;
+
+                  // Find the top player among all players for the "King" display
+                  final topPlayer = allPlayers.first;
                   final topPlayerData = topPlayer.data() as Map<String, dynamic>;
                   final kingName = topPlayerData['name'] ?? 'Unknown Player';
 
@@ -177,14 +230,39 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 8),
+                      SizedBox(height: 16),
+                      // Show selections in the same place as dropdowns but as text
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildSelectionDisplay(
+                              'Top Scorer of the Week ⭐',
+                              _getPlayerNameById(allPlayers, roomSelections?['selectedPlayer1']),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: _buildSelectionDisplay(
+                              'The Brilliant Player 🧠',
+                              _getPlayerNameById(allPlayers, roomSelections?['selectedPlayer2']),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: _buildSelectionDisplay(
+                              'Most Active 🗣️',
+                              _getPlayerNameById(allPlayers, roomSelections?['selectedPlayer3']),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   );
                 } else {
                   return Column(
                     children: [
                       Text(
-                        'No King Yet - Add Players!',
+                        'No players yet',
                         style: Theme.of(context).textTheme.titleLarge,
                         textAlign: TextAlign.center,
                       ),
@@ -196,7 +274,7 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
             ),
           ),
 
-          // Players list (read-only)
+          // Full Players Leaderboard (ALL players, not just selected ones)
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _firestoreService.streamRoomPlayers(widget.roomId),
@@ -219,9 +297,9 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                   return Center(child: CircularProgressIndicator());
                 }
 
-                final players = snapshot.data!.docs;
+                final allPlayers = snapshot.data!.docs; // Show ALL players
 
-                if (players.isEmpty) {
+                if (allPlayers.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -233,7 +311,7 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                           style: Theme.of(context).textTheme.headlineSmall,
                         ),
                         SizedBox(height: 8),
-                        Text('The room owner will add players soon'),
+                        Text('Players will appear here when added to the room'),
                       ],
                     ),
                   );
@@ -241,14 +319,13 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
 
                 return RefreshIndicator(
                   onRefresh: () async {
-                    // Refresh is handled automatically by StreamBuilder
-                    await Future.delayed(Duration(seconds: 1));
+                    await _loadRoomData();
                   },
                   child: ListView.builder(
                     padding: EdgeInsets.all(16),
-                    itemCount: players.length,
+                    itemCount: allPlayers.length, // Show ALL players count
                     itemBuilder: (context, index) {
-                      final player = players[index];
+                      final player = allPlayers[index]; // Use ALL players
                       final playerData = player.data() as Map<String, dynamic>;
                       final rank = index + 1;
 
@@ -258,23 +335,23 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                         child: ListTile(
                           leading: _buildRankingBadge(rank),
                           title: Text(
-                              playerData['name'] ?? 'Unknown Player',
-                              style: TextStyle(
-                                fontWeight: rank <= 3 ? FontWeight.bold : FontWeight.normal,
-                                fontSize: 18,
-                              ),
+                            playerData['name'] ?? 'Unknown Player',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
                           ),
                           subtitle: Text(
                             'Rank #$rank',
                             style: TextStyle(
-                              color: rank <= 3 ? Colors.amber[700] : Colors.grey[600],
+                              color: Colors.grey[600],
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                           trailing: Container(
                             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             decoration: BoxDecoration(
-                              color: rank <= 3 ? Colors.amber : Colors.blue,
+                              color: playerData['points'] < 70 ? Colors.blue : Colors.green,
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
@@ -307,7 +384,7 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
             Icon(Icons.info_outline, size: 16, color: Colors.green),
             SizedBox(width: 8),
             Text(
-              'This page updates automatically',
+              'Full leaderboard - Updates automatically',
               style: TextStyle(
                 color: Colors.green[700],
                 fontSize: 12,

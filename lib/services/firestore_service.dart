@@ -4,35 +4,61 @@ import 'package:shared_preferences/shared_preferences.dart';
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // User operations
+  // ...existing methods...
+
+  // Add method to update room selections
+  Future<void> updateRoomSelections(String roomId, String? player1Id, String? player2Id, String? player3Id) async {
+    try {
+      await _firestore.collection('rooms').doc(roomId).update({
+        'selectedPlayer1': player1Id,
+        'selectedPlayer2': player2Id,
+        'selectedPlayer3': player3Id,
+        'selectionsUpdatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update selections: $e');
+    }
+  }
+
+  // Add method to get room selections
+  Future<Map<String, dynamic>?> getRoomSelections(String roomId) async {
+    try {
+      DocumentSnapshot doc = await _firestore.collection('rooms').doc(roomId).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'selectedPlayer1': data['selectedPlayer1'],
+          'selectedPlayer2': data['selectedPlayer2'],
+          'selectedPlayer3': data['selectedPlayer3'],
+        };
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ...all existing methods remain the same...
   Future<String> createUser(String name) async {
     try {
-      // Check if a user with the same name already exists
       QuerySnapshot existingUsers = await _firestore
           .collection('users')
           .where('name', isEqualTo: name)
-          .limit(1) // Optimization: we only need to know if at least one exists
+          .limit(1)
           .get();
 
       if (existingUsers.docs.isNotEmpty) {
-        // Username already exists, return the existing user's ID
-        // You might want to log them in or handle this case as per your app's logic
         String existingUserId = existingUsers.docs.first.id;
-
-        // Optionally, update SharedPreferences for the existing user
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('userId', existingUserId);
         await prefs.setString('userName', name);
-
         return existingUserId;
       } else {
-        // Username does not exist, create a new user
         DocumentReference userDoc = await _firestore.collection('users').add({
           'name': name,
           'createdAt': FieldValue.serverTimestamp(),
         });
 
-        // Save user session locally
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('userId', userDoc.id);
         await prefs.setString('userName', name);
@@ -44,7 +70,6 @@ class FirestoreService {
     }
   }
 
-  // Add this to your FirestoreService
   Future<bool> doesRoomExist(String roomId) async {
     try {
       DocumentSnapshot doc = await _firestore
@@ -62,7 +87,7 @@ class FirestoreService {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userId = prefs.getString('userId');
       String? userName = prefs.getString('userName');
-      
+
       if (userId != null && userName != null) {
         return {
           'userId': userId,
@@ -81,7 +106,6 @@ class FirestoreService {
     await prefs.remove('userName');
   }
 
-  // Room operations
   Future<String> createRoom(String name, String ownerId) async {
     try {
       DocumentReference roomDoc = await _firestore.collection('rooms').add({
@@ -89,7 +113,7 @@ class FirestoreService {
         'ownerId': ownerId,
         'createdAt': FieldValue.serverTimestamp(),
       });
-      
+
       return roomDoc.id;
     } catch (e) {
       throw Exception('Failed to create room: $e');
@@ -106,38 +130,34 @@ class FirestoreService {
 
   Future<void> deleteRoom(String roomId) async {
     try {
-      // Delete all players in the room first
       QuerySnapshot playersSnapshot = await _firestore
           .collection('rooms')
           .doc(roomId)
           .collection('players')
           .get();
-      
+
       for (QueryDocumentSnapshot playerDoc in playersSnapshot.docs) {
         await playerDoc.reference.delete();
       }
-      
-      // Delete the room
+
       await _firestore.collection('rooms').doc(roomId).delete();
     } catch (e) {
       throw Exception('Failed to delete room: $e');
     }
   }
 
-  // Player operations
   Future<String> addPlayer(String roomId, String playerName) async {
     try {
-      // Check if room has less than 6 players
       QuerySnapshot playersSnapshot = await _firestore
           .collection('rooms')
           .doc(roomId)
           .collection('players')
           .get();
-      
+
       if (playersSnapshot.docs.length >= 6) {
         throw Exception('Room is full (maximum 6 players)');
       }
-      
+
       DocumentReference playerDoc = await _firestore
           .collection('rooms')
           .doc(roomId)
@@ -147,7 +167,7 @@ class FirestoreService {
         'points': 0,
         'createdAt': FieldValue.serverTimestamp(),
       });
-      
+
       return playerDoc.id;
     } catch (e) {
       throw Exception('Failed to add player: $e');

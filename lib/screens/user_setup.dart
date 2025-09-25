@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
+import '../widgets/textfeild_style.dart';
 import 'rooms_list.dart';
 
 class UserSetupScreen extends StatefulWidget {
@@ -80,16 +81,7 @@ class UserSetupScreenState extends State<UserSetupScreen> {
                     width: 500,
                     child: TextField(
                       controller: _nameController,
-                      decoration: InputDecoration(
-                        labelText: 'Your Name',
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                              width: 2
-                          ),
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        prefixIcon: Icon(Icons.person),
-                      ),
+                      decoration: userPlayer,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _createUser(),
                     ),
