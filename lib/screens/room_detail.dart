@@ -145,6 +145,77 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
     }
   }
 
+  _resetWeeklyPoints() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('🔄 Reset Weekly Points'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('This will:', style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text('• Set current #1 weekly scorer as "Top Scorer of the Week ⭐"'),
+            Text('• Add ⚡ symbol to players with 20+ weekly points'),
+            Text('• Reset all weekly points to 0'),
+            Text('• Start a new week'),
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '⚠️ This action cannot be undone!',
+                style: TextStyle(
+                  color: Colors.orange[800],
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('🔄 Reset Week'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _firestoreService.resetWeeklyPoints(widget.roomId);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Weekly points reset! New week started.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Reload selections to show the new weekly winner
+        _loadSelections();
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -171,10 +242,31 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
               stream: _firestoreService.streamRoomPlayers(widget.roomId),
               builder: (context, snapshot) {
                 if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                  final topPlayer = snapshot.data!.docs.first;
+                  final allPlayers = snapshot.data!.docs;
+                  final topPlayer = allPlayers.first;
                   final topPlayerData = topPlayer.data() as Map<String, dynamic>;
                   final kingName = topPlayerData['name'] ?? 'Unknown Player';
-                  final players = snapshot.data!.docs;
+
+                  // Find top weekly scorer
+                  String topWeeklyScorerText = 'No player yet';
+                  final playersWithWeeklyPoints = allPlayers.where((player) {
+                    final data = player.data() as Map<String, dynamic>;
+                    return (data['weeklyPoints'] ?? 0) > 0;
+                  }).toList();
+
+                  if (playersWithWeeklyPoints.isNotEmpty) {
+                    // Sort by weekly points to find the top weekly scorer
+                    playersWithWeeklyPoints.sort((a, b) {
+                      final aWeekly = (a.data() as Map<String, dynamic>)['weeklyPoints'] ?? 0;
+                      final bWeekly = (b.data() as Map<String, dynamic>)['weeklyPoints'] ?? 0;
+                      return bWeekly.compareTo(aWeekly);
+                    });
+
+                    final topWeeklyPlayer = playersWithWeeklyPoints.first;
+                    final topWeeklyData = topWeeklyPlayer.data() as Map<String, dynamic>;
+                    final weeklyPoints = topWeeklyData['weeklyPoints'] ?? 0;
+                    topWeeklyScorerText = '${topWeeklyData['name']} ($weeklyPoints pts this week)';
+                  }
 
                   return Column(
                     children: [
@@ -194,6 +286,24 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                           ),
                         ],
                       ),
+                      SizedBox(height: 12),
+                      // Show Top Scorer of the Week
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Top Scorer of the Week ⭐: ',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          Text(
+                            topWeeklyScorerText,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange[700],
+                            ),
+                          ),
+                        ],
+                      ),
                       SizedBox(height: 16),
                       // Add dropdown menus row - only show when selections are loaded
                       if (_selectionsLoaded)
@@ -201,19 +311,24 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                           children: [
                             Expanded(
                               child: _buildDropdownMenu(
-                                'Top Scorer of the Week ⭐',
-                                _selectedPlayer1,
-                                players,
-                                    (value) => setState(() => _selectedPlayer1 = value),
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: _buildDropdownMenu(
                                 'The Brilliant Player 🧠',
                                 _selectedPlayer2,
-                                players,
+                                allPlayers,
                                     (value) => setState(() => _selectedPlayer2 = value),
+                              ),
+                            ),
+                            // Reset button
+                            Container(
+                              margin: EdgeInsets.symmetric(horizontal: 8),
+                              child: ElevatedButton.icon(
+                                onPressed: _resetWeeklyPoints,
+                                icon: Icon(Icons.refresh, size: 18),
+                                label: Text("Reset"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                ),
                               ),
                             ),
                             SizedBox(width: 12),
@@ -221,7 +336,7 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                               child: _buildDropdownMenu(
                                 'Most Active 🗣️',
                                 _selectedPlayer3,
-                                players,
+                                allPlayers,
                                     (value) => setState(() => _selectedPlayer3 = value),
                               ),
                             ),
@@ -237,7 +352,12 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                         style: Theme.of(context).textTheme.titleLarge,
                         textAlign: TextAlign.center,
                       ),
-                      SizedBox(height: 4),
+                      SizedBox(height: 8),
+                      Text(
+                        'Top Scorer of the Week ⭐: No player yet',
+                        style: TextStyle(color: Colors.orange[700],fontSize: 30,fontWeight: FontWeight.bold
+                        )
+                      ),
                     ],
                   );
                 }
@@ -245,7 +365,7 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
             ),
           ),
 
-          // ...existing expanded ListView code remains the same...
+          // Players List
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _firestoreService.streamRoomPlayers(widget.roomId),
@@ -291,6 +411,7 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                     final player = players[index];
                     final playerData = player.data() as Map<String, dynamic>;
                     final rank = index + 1;
+                    final hasElectric = playerData['hasElectric'] ?? false;
 
                     return Card(
                       margin: EdgeInsets.only(bottom: 12),
@@ -302,10 +423,25 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        subtitle: Text('Rank #$rank'),
+                        subtitle: Text('Rank $rank'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            // Add electric symbol if player has it
+                            if (hasElectric) ...[
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.yellow[700],
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '⚡',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                            ],
                             Container(
                               padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
@@ -386,7 +522,6 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
     );
   }
 
-  // ... all existing methods remain the same (no changes needed) ...
   _shareRoomLink() {
     final roomUrl = 'https://chess-test-f33d1.web.app/rooms/${widget.roomId}';
 

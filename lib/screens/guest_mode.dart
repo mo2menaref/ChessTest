@@ -212,6 +212,27 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                   final topPlayerData = topPlayer.data() as Map<String, dynamic>;
                   final kingName = topPlayerData['name'] ?? 'Unknown Player';
 
+                  // Find top weekly scorer
+                  String topWeeklyScorerText = 'No player yet';
+                  final playersWithWeeklyPoints = allPlayers.where((player) {
+                    final data = player.data() as Map<String, dynamic>;
+                    return (data['weeklyPoints'] ?? 0) > 0;
+                  }).toList();
+
+                  if (playersWithWeeklyPoints.isNotEmpty) {
+                    // Sort by weekly points to find the top weekly scorer
+                    playersWithWeeklyPoints.sort((a, b) {
+                      final aWeekly = (a.data() as Map<String, dynamic>)['weeklyPoints'] ?? 0;
+                      final bWeekly = (b.data() as Map<String, dynamic>)['weeklyPoints'] ?? 0;
+                      return bWeekly.compareTo(aWeekly);
+                    });
+
+                    final topWeeklyPlayer = playersWithWeeklyPoints.first;
+                    final topWeeklyData = topWeeklyPlayer.data() as Map<String, dynamic>;
+                    final weeklyPoints = topWeeklyData['weeklyPoints'] ?? 0;
+                    topWeeklyScorerText = '${topWeeklyData['name']} ($weeklyPoints pts this week)';
+                  }
+
                   return Column(
                     children: [
                       Row(
@@ -230,17 +251,28 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                           ),
                         ],
                       ),
+                      SizedBox(height: 12),
+                      // Show Top Scorer of the Week
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Top Scorer of the Week ⭐: ',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          Text(
+                            topWeeklyScorerText,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange[700],
+                            ),
+                          ),
+                        ],
+                      ),
                       SizedBox(height: 16),
                       // Show selections in the same place as dropdowns but as text
                       Row(
                         children: [
-                          Expanded(
-                            child: _buildSelectionDisplay(
-                              'Top Scorer of the Week ⭐',
-                              _getPlayerNameById(allPlayers, roomSelections?['selectedPlayer1']),
-                            ),
-                          ),
-                          SizedBox(width: 12),
                           Expanded(
                             child: _buildSelectionDisplay(
                               'The Brilliant Player 🧠',
@@ -266,7 +298,13 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                         style: Theme.of(context).textTheme.titleLarge,
                         textAlign: TextAlign.center,
                       ),
-                      SizedBox(height: 4),
+                      SizedBox(height: 8),
+                      Text(
+                        'Top Scorer of the Week ⭐: No player yet',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.orange[700],
+                        ),
+                      ),
                     ],
                   );
                 }
@@ -323,11 +361,12 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                   },
                   child: ListView.builder(
                     padding: EdgeInsets.all(16),
-                    itemCount: allPlayers.length, // Show ALL players count
+                    itemCount: allPlayers.length,
                     itemBuilder: (context, index) {
-                      final player = allPlayers[index]; // Use ALL players
+                      final player = allPlayers[index];
                       final playerData = player.data() as Map<String, dynamic>;
                       final rank = index + 1;
+                      final hasElectric = playerData['hasElectric'] ?? false;
 
                       return Card(
                         margin: EdgeInsets.only(bottom: 12),
@@ -348,20 +387,40 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          trailing: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: playerData['points'] < 70 ? Colors.blue : Colors.green,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              '${playerData['points'] ?? 0} pts',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Add electric symbol if player has it
+                              if (hasElectric) ...[
+                                Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.yellow[700],
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '⚡',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                              ],
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: playerData['points'] < 70 ? Colors.blue : Colors.green,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${playerData['points'] ?? 0} pts',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ),
                       );
