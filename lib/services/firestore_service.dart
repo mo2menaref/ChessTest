@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class FirestoreService {
@@ -7,7 +8,7 @@ class FirestoreService {
   // Updated updatePlayerPoints to use weeklyPoints field
   Future<void> updatePlayerPoints(String roomId, String playerId, int newPoints) async {
     try {
-      print('🔄 Updating points for player $playerId to $newPoints');
+      debugPrint('🔄 Updating points for player $playerId to $newPoints');
 
       // Get current points to calculate difference
       DocumentSnapshot playerDoc = await _firestore
@@ -23,7 +24,7 @@ class FirestoreService {
         final currentWeeklyPoints = (playerData['weeklyPoints'] ?? 0) as int;
         final pointsDifference = newPoints - currentPoints;
 
-        print('📊 Current: $currentPoints, New: $newPoints, Difference: $pointsDifference');
+        debugPrint('📊 Current: $currentPoints, New: $newPoints, Difference: $pointsDifference');
 
         // Update both main points and weekly points
         if (pointsDifference > 0) {
@@ -37,7 +38,7 @@ class FirestoreService {
             'points': newPoints,
             'weeklyPoints': currentWeeklyPoints + pointsDifference,
           });
-          print('✅ Added $pointsDifference to weekly points');
+          debugPrint('✅ Added $pointsDifference to weekly points');
         } else {
           // Just update main points for decreases
           await _firestore
@@ -46,18 +47,18 @@ class FirestoreService {
               .collection('players')
               .doc(playerId)
               .update({'points': newPoints});
-          print('✅ Updated main points only');
+          debugPrint('✅ Updated main points only');
         }
       }
     } catch (e) {
-      print('❌ Failed to update player points: $e');
+      debugPrint('❌ Failed to update player points: $e');
       throw Exception('Failed to update player points: $e');
     }
   }
 
   Future<void> resetWeeklyPoints(String roomId) async {
     try {
-      print('🔄 Starting weekly points reset for room: $roomId');
+      debugPrint('🔄 Starting weekly points reset for room: $roomId');
 
       // Get all players ordered by weekly points
       QuerySnapshot playersSnapshot = await _firestore
@@ -83,7 +84,7 @@ class FirestoreService {
         // Set the first player (highest weekly points) as winner
         if (i == 0 && weeklyPoints > 0) {
           winnerId = playerId;
-          print('🏆 Weekly winner: ${playerData['name']} with $weeklyPoints points');
+          debugPrint('🏆 Weekly winner: ${playerData['name']} with $weeklyPoints points');
         }
 
         // Add electric symbol if player has 20+ weekly points
@@ -92,7 +93,13 @@ class FirestoreService {
         if (weeklyPoints >= 20) {
           updates['hasElectric'] = true;
           updates['electricAddedAt'] = FieldValue.serverTimestamp();
-          print('⚡ Adding electric symbol to: ${playerData['name']}');
+          debugPrint('⚡ Adding electric symbol to: ${playerData['name']}');
+        }
+        else{
+            updates['hasElectric'] = false;
+            updates['FalseAddedAt'] = FieldValue.serverTimestamp();
+            debugPrint('X Adding electric symbol to: ${playerData['name']}');
+
         }
 
         batch.update(playerDoc.reference, updates);
@@ -107,9 +114,9 @@ class FirestoreService {
       });
 
       await batch.commit();
-      print('✅ Weekly points reset completed successfully');
+      debugPrint('✅ Weekly points reset completed successfully');
     } catch (e) {
-      print('❌ Error in resetWeeklyPoints: $e');
+      debugPrint('❌ Error in resetWeeklyPoints: $e');
       throw Exception('Failed to reset weekly points: $e');
     }
   }

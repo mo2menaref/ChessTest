@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firestore_service.dart';
+import '../utils/room_helpers.dart';
 
 class GuestRoomViewScreen extends StatefulWidget {
   final String roomId;
@@ -52,50 +53,6 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
         error = 'Error loading room: ${e.toString()}';
         isLoading = false;
       });
-    }
-  }
-
-  Widget _buildRankingBadge(int rank) {
-    Color color;
-    IconData icon;
-
-    switch (rank) {
-      case 1:
-        color = Colors.amber;
-        icon = Icons.emoji_events;
-        break;
-      case 2:
-        color = Colors.grey;
-        icon = Icons.emoji_events;
-        break;
-      case 3:
-        color = Colors.brown;
-        icon = Icons.emoji_events;
-        break;
-      default:
-        color = Colors.green;
-        icon = Icons.person;
-    }
-
-    return CircleAvatar(
-      backgroundColor: color,
-      radius: 20,
-      child: rank <= 3
-          ? Icon(icon, color: Colors.white, size: 20)
-          : Text('$rank', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-    );
-  }
-
-  // Method to get player name by ID
-  String _getPlayerNameById(List<QueryDocumentSnapshot> players, String? playerId) {
-    if (playerId == null) return 'No selection';
-
-    try {
-      final player = players.firstWhere((p) => p.id == playerId);
-      final playerData = player.data() as Map<String, dynamic>;
-      return playerData['name'] ?? 'Unknown Player';
-    } catch (e) {
-      return 'Player not found';
     }
   }
 
@@ -276,14 +233,14 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                           Expanded(
                             child: _buildSelectionDisplay(
                               'The Brilliant Player 🧠',
-                              _getPlayerNameById(allPlayers, roomSelections?['selectedPlayer2']),
+                              getPlayerNameById(allPlayers, roomSelections?['selectedPlayer2']),
                             ),
                           ),
                           SizedBox(width: 12),
                           Expanded(
                             child: _buildSelectionDisplay(
                               'Most Active 🗣️',
-                              _getPlayerNameById(allPlayers, roomSelections?['selectedPlayer3']),
+                              getPlayerNameById(allPlayers, roomSelections?['selectedPlayer3']),
                             ),
                           ),
                         ],
@@ -372,7 +329,7 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                         margin: EdgeInsets.only(bottom: 12),
                         elevation: 4,
                         child: ListTile(
-                          leading: _buildRankingBadge(rank),
+                          leading: buildRankingBadge(rank),
                           title: Text(
                             playerData['name'] ?? 'Unknown Player',
                             style: TextStyle(

@@ -5,8 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/user_setup.dart';
 import 'screens/rooms_list.dart';
 import 'firebase_options.dart';
-import 'screens/user_setup.dart';
-import 'screens/rooms_list.dart';
 
 void main() async {
   debugPrint('Starting app initialization...');
