@@ -79,6 +79,7 @@ class FirestoreService {
         final playerDoc = playersSnapshot.docs[i];
         final playerData = playerDoc.data() as Map<String, dynamic>;
         final weeklyPoints = (playerData['weeklyPoints'] ?? 0) as int;
+        final currentElectricCount = (playerData['electricCount'] ?? 0) as int;
         final playerId = playerDoc.id;
 
         // Set the first player (highest weekly points) as winner
@@ -87,20 +88,20 @@ class FirestoreService {
           debugPrint('🏆 Weekly winner: ${playerData['name']} with $weeklyPoints points');
         }
 
-        // Add electric symbol if player has 20+ weekly points
-        Map<String, dynamic> updates = {'weeklyPoints': 0}; // Reset weekly points
+        // Prepare updates - always reset weekly points
+        Map<String, dynamic> updates = {'weeklyPoints': 0};
 
+        // Electric symbol logic - ADD to count instead of overwriting
         if (weeklyPoints >= 20) {
-          updates['hasElectric'] = true;
-          updates['electricAddedAt'] = FieldValue.serverTimestamp();
-          debugPrint('⚡ Adding electric symbol to: ${playerData['name']}');
+          // ADD one more electric symbol to existing count
+          updates['electricCount'] = currentElectricCount + 1;
+          updates['hasElectric'] = true; // Keep this for backward compatibility
+          updates['lastElectricAddedAt'] = FieldValue.serverTimestamp();
+          debugPrint('⚡ Adding electric symbol to: ${playerData['name']} (now has ${currentElectricCount + 1} electric symbols)');
         }
-        else{
-            updates['hasElectric'] = false;
-            updates['FalseAddedAt'] = FieldValue.serverTimestamp();
-            debugPrint('X Adding electric symbol to: ${playerData['name']}');
+        // If didn't earn 20+, don't touch electric fields at all
 
-        }
+        debugPrint('📝 Player: ${playerData['name']}, Weekly: $weeklyPoints, Current Electric Count: $currentElectricCount');
 
         batch.update(playerDoc.reference, updates);
       }
@@ -153,7 +154,6 @@ class FirestoreService {
     }
   }
 
-  // ...keep all existing methods unchanged...
   Future<String> createUser(String name) async {
     try {
       QuerySnapshot existingUsers = await _firestore
@@ -283,8 +283,9 @@ class FirestoreService {
           .add({
         'name': playerName,
         'points': 0,
-        'weeklyPoints': 0,  // Add weeklyPoints field
+        'weeklyPoints': 0,
         'hasElectric': false,
+        'electricCount': 0, // Add this field
         'createdAt': FieldValue.serverTimestamp(),
       });
 

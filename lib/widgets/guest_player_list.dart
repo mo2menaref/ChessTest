@@ -1,42 +1,22 @@
-import 'package:chess_test/widgets/room_dailogs.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-
 import '../services/firestore_service.dart';
-import '../utils/players_functions.dart';
 import '../utils/room_helpers.dart';
 
-class PlayerList extends StatefulWidget {
+class GuestPlayerList extends StatefulWidget {
   final String roomId;
 
-  const PlayerList({
+  const GuestPlayerList({
     super.key,
     required this.roomId,
   });
 
   @override
-  State<PlayerList> createState() => _PlayerListState();
+  State<GuestPlayerList> createState() => _GuestPlayerListState();
 }
 
-class _PlayerListState extends State<PlayerList> {
+class _GuestPlayerListState extends State<GuestPlayerList> {
   final FirestoreService _firestoreService = FirestoreService();
-  final PlayerFunctionManager _playerManager = PlayerFunctionManager();
-  final TextEditingController _pointsController = TextEditingController();
-
-  @override
-  void dispose() {
-    _pointsController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _updatePoints(String playerId) async {
-    await _playerManager.updatePoints(
-      context: context,
-      roomId: widget.roomId,
-      playerId: playerId,
-      pointsController: _pointsController,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +26,15 @@ class _PlayerListState extends State<PlayerList> {
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
-              child: Text('Error: ${snapshot.error}'),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error, size: 64, color: Colors.red),
+                  SizedBox(height: 16),
+                  Text('Error loading players'),
+                  Text('${snapshot.error}', style: TextStyle(fontSize: 12)),
+                ],
+              ),
             );
           }
 
@@ -54,25 +42,21 @@ class _PlayerListState extends State<PlayerList> {
             return Center(child: CircularProgressIndicator());
           }
 
-          final players = snapshot.data!.docs;
+          final allPlayers = snapshot.data!.docs;
 
-          if (players.isEmpty) {
+          if (allPlayers.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.person_add,
-                    size: 64,
-                    color: Colors.grey,
-                  ),
+                  Icon(Icons.people, size: 64, color: Colors.grey),
                   SizedBox(height: 16),
                   Text(
                     'No players yet',
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   SizedBox(height: 8),
-                  Text('Add players to start tracking points'),
+                  Text('Players will appear here when added to the room'),
                 ],
               ),
             );
@@ -80,24 +64,32 @@ class _PlayerListState extends State<PlayerList> {
 
           return ListView.builder(
             padding: EdgeInsets.all(16),
-            itemCount: players.length,
+            itemCount: allPlayers.length,
             itemBuilder: (context, index) {
-              final player = players[index];
+              final player = allPlayers[index];
               final playerData = player.data() as Map<String, dynamic>;
               final rank = index + 1;
               final electricCount = playerData['electricCount'] ?? 0;
 
               return Card(
                 margin: EdgeInsets.only(bottom: 12),
+                elevation: 4,
                 child: ListTile(
                   leading: buildRankingBadge(rank),
                   title: Text(
                     playerData['name'] ?? 'Unknown Player',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
+                      fontSize: 18,
                     ),
                   ),
-                  subtitle: Text('Rank #$rank'),
+                  subtitle: Text(
+                    'Rank #$rank',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -107,7 +99,7 @@ class _PlayerListState extends State<PlayerList> {
                             margin: EdgeInsets.only(right: 4), // Space between electric symbols
                             padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.greenAccent[700], // Changed to yellow for better visibility
+                              color: Colors.greenAccent[700], // Yellow for consistency
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: Colors.green, width: 1), // Add border for distinction
                             ),
@@ -121,63 +113,20 @@ class _PlayerListState extends State<PlayerList> {
                       // Add spacing if there are electric symbols
                       if (electricCount > 0) SizedBox(width: 8),
 
-                      // Points container
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
                           color: playerData['points'] < 70 ? Colors.blue : Colors.green,
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           '${playerData['points'] ?? 0} pts',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
                         ),
-                      ),
-                      PopupMenuButton(
-                        onSelected: (value) {
-                          if (value == 'update') {
-                            RoomDialogs.showUpdatePointsDialog(
-                              context: context,
-                              playerId: player.id,
-                              playerName: playerData['name'] ?? 'Unknown Player',
-                              currentPoints: playerData['points'] ?? 0,
-                              pointsController: _pointsController,
-                              onUpdate: () => _updatePoints(player.id),
-                            );
-                          } else if (value == 'delete') {
-                            _playerManager.showDeletePlayerDialog(
-                              context: context,
-                              playerId: player.id,
-                              playerName: playerData['name'] ?? 'Unknown Player',
-                              roomId: widget.roomId,
-                            );
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          PopupMenuItem(
-                            value: 'update',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit, color: Colors.blue),
-                                SizedBox(width: 8),
-                                Text('Update Points'),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete, color: Colors.red),
-                                SizedBox(width: 8),
-                                Text('Remove Player'),
-                              ],
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),

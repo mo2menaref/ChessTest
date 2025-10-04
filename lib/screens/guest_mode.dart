@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firestore_service.dart';
 import '../utils/room_helpers.dart';
+import '../widgets/guest_player_list.dart';
 
 class GuestRoomViewScreen extends StatefulWidget {
   final String roomId;
@@ -40,7 +41,6 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
         return;
       }
 
-      // Get room selections
       Map<String, dynamic>? selections = await _firestoreService.getRoomSelections(widget.roomId);
 
       setState(() {
@@ -56,7 +56,6 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
     }
   }
 
-  // Method to build selection display (like dropdown but as text)
   Widget _buildSelectionDisplay(String label, String playerName) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,13 +162,10 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
               builder: (context, snapshot) {
                 if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
                   final allPlayers = snapshot.data!.docs;
-
-                  // Find the top player among all players for the "King" display
                   final topPlayer = allPlayers.first;
                   final topPlayerData = topPlayer.data() as Map<String, dynamic>;
                   final kingName = topPlayerData['name'] ?? 'Unknown Player';
 
-                  // Find top weekly scorer
                   String topWeeklyScorerText = 'No player yet';
                   final playersWithWeeklyPoints = allPlayers.where((player) {
                     final data = player.data() as Map<String, dynamic>;
@@ -177,7 +173,6 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                   }).toList();
 
                   if (playersWithWeeklyPoints.isNotEmpty) {
-                    // Sort by weekly points to find the top weekly scorer
                     playersWithWeeklyPoints.sort((a, b) {
                       final aWeekly = (a.data() as Map<String, dynamic>)['weeklyPoints'] ?? 0;
                       final bWeekly = (b.data() as Map<String, dynamic>)['weeklyPoints'] ?? 0;
@@ -209,7 +204,6 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                         ],
                       ),
                       SizedBox(height: 12),
-                      // Show Top Scorer of the Week
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -227,7 +221,6 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                         ],
                       ),
                       SizedBox(height: 16),
-                      // Show selections in the same place as dropdowns but as text
                       Row(
                         children: [
                           Expanded(
@@ -269,128 +262,11 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
             ),
           ),
 
-          // Full Players Leaderboard (ALL players, not just selected ones)
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestoreService.streamRoomPlayers(widget.roomId),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error, size: 64, color: Colors.red),
-                        SizedBox(height: 16),
-                        Text('Error loading players'),
-                        Text('${snapshot.error}', style: TextStyle(fontSize: 12)),
-                      ],
-                    ),
-                  );
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                }
-
-                final allPlayers = snapshot.data!.docs; // Show ALL players
-
-                if (allPlayers.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.people, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          'No players yet',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        SizedBox(height: 8),
-                        Text('Players will appear here when added to the room'),
-                      ],
-                    ),
-                  );
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    await _loadRoomData();
-                  },
-                  child: ListView.builder(
-                    padding: EdgeInsets.all(16),
-                    itemCount: allPlayers.length,
-                    itemBuilder: (context, index) {
-                      final player = allPlayers[index];
-                      final playerData = player.data() as Map<String, dynamic>;
-                      final rank = index + 1;
-                      final hasElectric = playerData['hasElectric'] ?? false;
-
-                      return Card(
-                        margin: EdgeInsets.only(bottom: 12),
-                        elevation: 4,
-                        child: ListTile(
-                          leading: buildRankingBadge(rank),
-                          title: Text(
-                            playerData['name'] ?? 'Unknown Player',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-                          subtitle: Text(
-                            'Rank #$rank',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Add electric symbol if player has it
-                              if (hasElectric) ...[
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.yellow[700],
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    '⚡',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                ),
-                                SizedBox(width: 8),
-                              ],
-                              Container(
-                                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: playerData['points'] < 70 ? Colors.blue : Colors.green,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${playerData['points'] ?? 0} pts',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
+          // Use the new GuestPlayerList widget
+          GuestPlayerList(roomId: widget.roomId),
         ],
       ),
 
-      // Bottom info bar
       bottomNavigationBar: Container(
         padding: EdgeInsets.all(12),
         color: Colors.green.withOpacity(0.1),
