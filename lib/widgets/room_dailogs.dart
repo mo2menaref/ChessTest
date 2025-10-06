@@ -13,30 +13,178 @@ class RoomDialogs {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Update Points for $playerName'),
-        content: TextField(
-          controller: pointsController,
-          decoration: InputDecoration(
-            labelText: 'Points',
-            border: OutlineInputBorder(),
-          ),
-          keyboardType: TextInputType.number,
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              pointsController.clear();
-            },
-            child: Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: onUpdate,
-            child: Text('Update'),
-          ),
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          // Helper function to update points and text field
+          void updatePoints(int change) {
+            int currentValue = int.tryParse(pointsController.text) ?? 0;
+            int newValue = (currentValue + change).clamp(0, 999); // Prevent negative points and cap at 999
+            pointsController.text = newValue.toString();
+            setState(() {}); // Refresh the dialog
+          }
+
+          return AlertDialog(
+            title: Text('Update Points for $playerName'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Current points display
+                Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Current Points: $currentPoints',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[700],
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
+
+                // Points input with -1 and +1 buttons
+                Row(
+                  children: [
+                    // -1 Button
+                    IconButton(
+                      onPressed: () => updatePoints(-1),
+                      icon: Icon(Icons.remove_circle, color: Colors.red),
+                      tooltip: 'Decrease by 1',
+                    ),
+
+                    // Text Field
+                    Expanded(
+                      child: TextField(
+                        controller: pointsController,
+                        decoration: InputDecoration(
+                          labelText: 'Points',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        onChanged: (value) {
+                          setState(() {}); // Refresh when user types
+                        },
+                      ),
+                    ),
+
+                    // +1 Button
+                    IconButton(
+                      onPressed: () => updatePoints(1),
+                      icon: Icon(Icons.add_circle, color: Colors.green),
+                      tooltip: 'Increase by 1',
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: 5),
+
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  spacing: 5,
+                  children: [
+                    // +2 Button
+                    ElevatedButton(
+                      onPressed: () => updatePoints(2),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[100],
+                        foregroundColor: Colors.blue[700],
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      child: Text('+2'),
+                    ),
+
+                    // +3 Button
+                    ElevatedButton(
+                      onPressed: () => updatePoints(3),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green[100],
+                        foregroundColor: Colors.green[700],
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      child: Text('+3'),
+                    ),
+
+                    // +4 Button
+                    ElevatedButton(
+                      onPressed: () => updatePoints(4),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange[100],
+                        foregroundColor: Colors.orange[700],
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      child: Text('+4'),
+                    ),
+
+                    // +5 Button
+                    ElevatedButton(
+                      onPressed: () => updatePoints(5),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purple[100],
+                        foregroundColor: Colors.purple[700],
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      child: Text('+5'),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: 12),
+
+                // Points difference indicator
+                Builder(
+                  builder: (context) {
+                    int newPoints = int.tryParse(pointsController.text) ?? 0;
+                    int difference = newPoints - currentPoints;
+
+                    if (difference == 0) return SizedBox.shrink();
+
+                    return Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: difference > 0 ? Colors.green[50] : Colors.red[50],
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: difference > 0 ? Colors.green : Colors.red,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        difference > 0 ? '+$difference points' : '$difference points',
+                        style: TextStyle(
+                          color: difference > 0 ? Colors.green[700] : Colors.red[700],
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  pointsController.clear();
+                },
+                child: Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: onUpdate,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text('Update'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -55,7 +203,9 @@ class RoomDialogs {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Share this link with players to let them view the leaderboard:'),
+            Text(
+              'Share this link with players to let them view the leaderboard:',
+            ),
             SizedBox(height: 12),
             Container(
               padding: EdgeInsets.all(12),
@@ -119,10 +269,7 @@ class RoomDialogs {
             },
             child: Text('Cancel'),
           ),
-          ElevatedButton(
-            onPressed: onAdd,
-            child: Text('Add'),
-          ),
+          ElevatedButton(onPressed: onAdd, child: Text('Add')),
         ],
       ),
     );

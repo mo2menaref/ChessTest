@@ -5,6 +5,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Add this method to FirestoreService class:
+  Stream<DocumentSnapshot> streamRoomDetails(String roomId) {
+    return _firestore
+        .collection('rooms')
+        .doc(roomId)
+        .snapshots();
+  }
+
   // Updated updatePlayerPoints to use weeklyPoints field
   Future<void> updatePlayerPoints(String roomId, String playerId, int newPoints) async {
     try {
@@ -119,6 +127,41 @@ class FirestoreService {
     } catch (e) {
       debugPrint('❌ Error in resetWeeklyPoints: $e');
       throw Exception('Failed to reset weekly points: $e');
+    }
+  }
+
+  // Add this method to FirestoreService class:
+  Future<void> undoSessionIncrement(String roomId) async {
+    try {
+      debugPrint('🔄 Undoing session increment for room: $roomId');
+
+      DocumentSnapshot roomDoc = await _firestore
+          .collection('rooms')
+          .doc(roomId)
+          .get();
+
+      if (!roomDoc.exists) {
+        throw Exception('Room not found');
+      }
+
+      final roomData = roomDoc.data() as Map<String, dynamic>;
+      final currentWeek = (roomData['currentWeekNumber'] ?? 1) as int;
+
+      // Only allow undo if session is greater than 1
+      if (currentWeek <= 1) {
+        throw Exception('Cannot undo: Already at session 1');
+      }
+
+      // Decrease session number by 1
+      await _firestore.collection('rooms').doc(roomId).update({
+        'currentWeekNumber': currentWeek - 1,
+        'undoPerformedAt': FieldValue.serverTimestamp(),
+      });
+
+      debugPrint('✅ Session number decreased from $currentWeek to ${currentWeek - 1}');
+    } catch (e) {
+      debugPrint('❌ Error in undoSessionIncrement: $e');
+      throw Exception('Failed to undo session: $e');
     }
   }
 
@@ -321,3 +364,4 @@ class FirestoreService {
     return _firestore.collection('rooms').doc(roomId).get();
   }
 }
+

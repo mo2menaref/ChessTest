@@ -1,9 +1,10 @@
-import 'package:chess_test/widgets/player_list.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firestore_service.dart';
 import '../utils/players_functions.dart';
 import '../widgets/room_dailogs.dart';
+import '../widgets/player_list.dart';
+import '../widgets/drop_down_menu.dart';
 
 class RoomDetailScreen extends StatefulWidget {
   final String roomId;
@@ -23,9 +24,8 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   final PlayerFunctionManager _playerManager = PlayerFunctionManager();
   final TextEditingController _playerNameController = TextEditingController();
-  final TextEditingController _pointsController = TextEditingController();
 
-  // Add these variables for dropdown selections
+  // Dropdown selection variables
   String? _selectedPlayer1;
   String? _selectedPlayer2;
   String? _selectedPlayer3;
@@ -34,18 +34,17 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSelections();
+    _loadInitialSelections();
   }
 
   @override
   void dispose() {
     _playerNameController.dispose();
-    _pointsController.dispose();
     super.dispose();
   }
 
-  // Add method to load selections from Firestore
-  _loadSelections() async {
+  // Only keep this simple method for initial loading
+  _loadInitialSelections() async {
     try {
       final selections = await _playerManager.loadSelections(widget.roomId);
       if (selections != null && mounted) {
@@ -68,100 +67,61 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
     }
   }
 
-  // Add method to save selections to Firestore
-  _saveSelections() async {
-    await _playerManager.saveSelections(
-      roomId: widget.roomId,
-      selectedPlayer1: _selectedPlayer1,
-      selectedPlayer2: _selectedPlayer2,
-      selectedPlayer3: _selectedPlayer3,
-    );
-  }
-
-  // Add method to build dropdown menu
-  Widget _buildDropdownMenu(String label,
-      String? selectedValue,
-      List<QueryDocumentSnapshot> players,
-      Function(String?) onChanged,) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
-        SizedBox(height: 8),
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: DropdownButton<String>(
-            value: selectedValue,
-            hint: Text('Select Player'),
-            isExpanded: true,
-            underline: SizedBox(),
-            items: [
-              // Add clear option first
-              DropdownMenuItem<String>(
-                value: null,
-                child: Text(
-                    'No selection', style: TextStyle(color: Colors.grey)),
-              ),
-              // Then add existing player items
-              ...players.map((player) {
-                final playerData = player.data() as Map<String, dynamic>;
-                final playerName = playerData['name'] ?? 'Unknown Player';
-                return DropdownMenuItem<String>(
-                  value: player.id,
-                  child: Text(playerName),
-                );
-              }).toList(),
-            ],
-            onChanged: (value) {
-              onChanged(value);
-              _saveSelections();
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Reset weekly points using PlayerFunctionManager
-  resetWeeklyPoints() async {
-    await _playerManager.resetWeeklyPoints(
-      context: context,
-      roomId: widget.roomId,
-      onSuccess: () {
-        _loadSelections(); // Reload selections after reset
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.roomName),
+        title: StreamBuilder<DocumentSnapshot>(
+          stream: _firestoreService.streamRoomDetails(widget.roomId), // We need to add this method
+          builder: (context, snapshot) {
+            if (snapshot.hasData && snapshot.data!.exists) {
+              final roomData = snapshot.data!.data() as Map<String, dynamic>;
+              final currentWeek = roomData['currentWeekNumber'] ?? 1;
+
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    widget.roomName,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 25,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'Session $currentWeek',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return Text(widget.roomName); // Fallback
+          },
+        ),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         centerTitle: true,
         actions: [
           IconButton(
             icon: Icon(Icons.share),
-            onPressed: () =>
-                RoomDialogs.showShareRoomDialog(
-                  context: context,
-                  roomId: widget.roomId,
-                ),
+            onPressed: () => RoomDialogs.showShareRoomDialog(
+              context: context,
+              roomId: widget.roomId,
+            ),
             tooltip: 'Share Room',
           ),
         ],
       ),
       body: Column(
         children: [
+          // Header Section with King, Weekly Scorer, and Dropdowns
           Container(
             padding: EdgeInsets.all(16),
             width: double.infinity,
@@ -172,8 +132,7 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                 if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
                   final allPlayers = snapshot.data!.docs;
                   final topPlayer = allPlayers.first;
-                  final topPlayerData = topPlayer.data() as Map<String,
-                      dynamic>;
+                  final topPlayerData = topPlayer.data() as Map<String, dynamic>;
                   final kingName = topPlayerData['name'] ?? 'Unknown Player';
 
                   // Find top weekly scorer
@@ -184,43 +143,31 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                   }).toList();
 
                   if (playersWithWeeklyPoints.isNotEmpty) {
-                    // Sort by weekly points to find the top weekly scorer
                     playersWithWeeklyPoints.sort((a, b) {
-                      final aWeekly = (a.data() as Map<String,
-                          dynamic>)['weeklyPoints'] ?? 0;
-                      final bWeekly = (b.data() as Map<String,
-                          dynamic>)['weeklyPoints'] ?? 0;
+                      final aWeekly = (a.data() as Map<String, dynamic>)['weeklyPoints'] ?? 0;
+                      final bWeekly = (b.data() as Map<String, dynamic>)['weeklyPoints'] ?? 0;
                       return bWeekly.compareTo(aWeekly);
                     });
 
                     final topWeeklyPlayer = playersWithWeeklyPoints.first;
-                    final topWeeklyData = topWeeklyPlayer.data() as Map<
-                        String,
-                        dynamic>;
+                    final topWeeklyData = topWeeklyPlayer.data() as Map<String, dynamic>;
                     final weeklyPoints = topWeeklyData['weeklyPoints'] ?? 0;
-                    topWeeklyScorerText =
-                    '${topWeeklyData['name']} ($weeklyPoints pts this week)';
+                    topWeeklyScorerText = '${topWeeklyData['name']} ($weeklyPoints pts this week)';
                   }
 
                   return Column(
                     children: [
+                      // King Display
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
                             'The King of The Room is: ',
-                            style: Theme
-                                .of(context)
-                                .textTheme
-                                .titleLarge,
+                            style: Theme.of(context).textTheme.titleLarge,
                           ),
                           Text(
                             kingName,
-                            style: Theme
-                                .of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Colors.amber[700],
                             ),
@@ -228,24 +175,18 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                         ],
                       ),
                       SizedBox(height: 12),
-                      // Show Top Scorer of the Week
+
+                      // Top Weekly Scorer Display
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
                             'Top Scorer of the Week ⭐: ',
-                            style: Theme
-                                .of(context)
-                                .textTheme
-                                .titleMedium,
+                            style: Theme.of(context).textTheme.titleMedium,
                           ),
                           Text(
                             topWeeklyScorerText,
-                            style: Theme
-                                .of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Colors.orange[700],
                             ),
@@ -253,42 +194,66 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                         ],
                       ),
                       SizedBox(height: 16),
-                      // Add dropdown menus row - only show when selections are loaded
+
+                      // Dropdown Menus Row - Using DropDownMenu Widget
                       if (_selectionsLoaded)
                         Row(
                           children: [
+                            // Brilliant Player Dropdown
                             Expanded(
-                              child: _buildDropdownMenu(
-                                'The Brilliant Player 🧠',
-                                _selectedPlayer2,
-                                allPlayers,
-                                    (value) =>
-                                    setState(() => _selectedPlayer2 = value),
+                              child: DropDownMenu(
+                                label: 'The Brilliant Player 🧠',
+                                selectedValue: _selectedPlayer2,
+                                players: allPlayers,
+                                onChanged: (value) async {
+                                  setState(() => _selectedPlayer2 = value);
+                                  // Direct call to PlayerFunctionManager
+                                  await _playerManager.saveSelections(
+                                    roomId: widget.roomId,
+                                    selectedPlayer1: _selectedPlayer1,
+                                    selectedPlayer2: value,
+                                    selectedPlayer3: _selectedPlayer3,
+                                  );
+                                },
                               ),
                             ),
-                            // Reset button
+
+                            // Reset Button
                             Container(
                               margin: EdgeInsets.symmetric(horizontal: 8),
                               child: ElevatedButton.icon(
-                                onPressed: resetWeeklyPoints,
+                                // Direct call to PlayerFunctionManager
+                                onPressed: () => _playerManager.resetWeeklyPoints(
+                                  context: context,
+                                  roomId: widget.roomId,
+                                  onSuccess: _loadInitialSelections,
+                                ),
                                 icon: Icon(Icons.refresh, size: 18),
                                 label: Text("Reset"),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.orange,
                                   foregroundColor: Colors.white,
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
+                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 ),
                               ),
                             ),
-                            SizedBox(width: 12),
+
+                            // Most Active Player Dropdown
                             Expanded(
-                              child: _buildDropdownMenu(
-                                'Most Active 🗣️',
-                                _selectedPlayer3,
-                                allPlayers,
-                                    (value) =>
-                                    setState(() => _selectedPlayer3 = value),
+                              child: DropDownMenu(
+                                label: 'Most Active 🗣️',
+                                selectedValue: _selectedPlayer3,
+                                players: allPlayers,
+                                onChanged: (value) async {
+                                  setState(() => _selectedPlayer3 = value);
+                                  // Direct call to PlayerFunctionManager
+                                  await _playerManager.saveSelections(
+                                    roomId: widget.roomId,
+                                    selectedPlayer1: _selectedPlayer1,
+                                    selectedPlayer2: _selectedPlayer2,
+                                    selectedPlayer3: value,
+                                  );
+                                },
                               ),
                             ),
                           ],
@@ -296,14 +261,12 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                     ],
                   );
                 } else {
+                  // No Players State
                   return Column(
                     children: [
                       Text(
                         'No King Yet - Add Players!',
-                        style: Theme
-                            .of(context)
-                            .textTheme
-                            .titleLarge,
+                        style: Theme.of(context).textTheme.titleLarge,
                         textAlign: TextAlign.center,
                       ),
                       SizedBox(height: 8),
@@ -321,9 +284,13 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
               },
             ),
           ),
+
+          // Players List - Using PlayerList Widget
           PlayerList(roomId: widget.roomId),
         ],
       ),
+
+      // Floating Action Button for Adding Players
       floatingActionButton: StreamBuilder<QuerySnapshot>(
         stream: _firestoreService.streamRoomPlayers(widget.roomId),
         builder: (context, snapshot) {
@@ -331,17 +298,16 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
           final isRoomFull = playerCount >= 6;
 
           return FloatingActionButton(
-            onPressed: isRoomFull ? null : () =>
-                RoomDialogs.showAddPlayerDialog(
-                  context: context,
-                  playerNameController: _playerNameController,
-                  onAdd: () =>
-                      _playerManager.addPlayer(
-                        context: context,
-                        roomId: widget.roomId,
-                        playerNameController: _playerNameController,
-                      ),
-                ),
+            // Direct call to PlayerFunctionManager via RoomDialogs
+            onPressed: isRoomFull ? null : () => RoomDialogs.showAddPlayerDialog(
+              context: context,
+              playerNameController: _playerNameController,
+              onAdd: () => _playerManager.addPlayer(
+                context: context,
+                roomId: widget.roomId,
+                playerNameController: _playerNameController,
+              ),
+            ),
             backgroundColor: isRoomFull ? Colors.grey : null,
             tooltip: isRoomFull ? 'Room is full (6 players max)' : 'Add Player',
             child: Icon(Icons.person_add),
@@ -351,5 +317,3 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
     );
   }
 }
-
-

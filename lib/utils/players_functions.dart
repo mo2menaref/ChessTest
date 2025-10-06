@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
 
@@ -149,7 +150,12 @@ class PlayerFunctionManager {
     required String roomId,
     required VoidCallback onSuccess,
   }) async {
-    final confirmed = await showDialog<bool>(
+    // First, get current session number to decide which buttons to show
+    DocumentSnapshot roomDoc = await _firestoreService.getRoomDetails(roomId);
+    final roomData = roomDoc.data() as Map<String, dynamic>?;
+    final currentWeek = roomData?['currentWeekNumber'] ?? 1;
+
+    final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('🔄 Reset Weekly Points'),
@@ -162,31 +168,62 @@ class PlayerFunctionManager {
             Text('• Set current #1 weekly scorer as "Top Scorer of the Week ⭐"'),
             Text('• Add ⚡ symbol to players with 20+ weekly points'),
             Text('• Reset all weekly points to 0'),
-            Text('• Start a new week'),
+            Text('• Start a new week (Session #${currentWeek + 1})'),
             SizedBox(height: 12),
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '⚠️ This action cannot be undone!',
-                style: TextStyle(
-                  color: Colors.orange[800],
-                  fontWeight: FontWeight.bold,
+            if (currentWeek > 1) ...[
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[200]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '💡 Made a mistake?',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange[800],
+                      ),
+                    ),
+                    Text(
+                      'Click "Undo Session" to decrease session number immediately.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange[700],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
+            ],
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel'),
-          ),
+          // Show different buttons based on session number
+          if (currentWeek > 1) ...[
+            // Show Undo button that works immediately
+            TextButton.icon(
+              onPressed: () => Navigator.pop(context, 'undo'), // Return 'undo' action
+              icon: Icon(Icons.undo, color: Colors.orange),
+              label: Text(
+                'Undo Session',
+                style: TextStyle(color: Colors.orange),
+              ),
+            ),
+          ] else ...[
+            // Show Cancel button if session = 1 (can't undo)
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'cancel'),
+              child: Text('Cancel'),
+            ),
+          ],
+
+          // Reset Week button (always present)
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, 'reset'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange,
               foregroundColor: Colors.white,
@@ -197,7 +234,9 @@ class PlayerFunctionManager {
       ),
     );
 
-    if (confirmed == true) {
+    // Handle the different actions based on what button was pressed
+    if (result == 'reset') {
+      // User wants to reset weekly points
       try {
         await _firestoreService.resetWeeklyPoints(roomId);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -217,7 +256,30 @@ class PlayerFunctionManager {
         );
         return false;
       }
+    } else if (result == 'undo') {
+      // User wants to undo session - do it immediately without another dialog
+      try {
+        await _firestoreService.undoSessionIncrement(roomId);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Session number decreased by 1'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        onSuccess(); // Call the callback to reload data
+        return true;
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return false;
+      }
     }
+
+    // User cancelled or any other case
     return false;
   }
 }
