@@ -17,6 +17,21 @@ class DropDownMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Check if selectedValue exists in current players list
+    final selectedPlayerExists = selectedValue == null ||
+        players.any((player) => player.id == selectedValue);
+
+    // If selected player doesn't exist, reset to null
+    final safeSelectedValue = selectedPlayerExists ? selectedValue : null;
+
+    // Auto-clear selection if player was deleted
+    if (!selectedPlayerExists && selectedValue != null) {
+      // Call onChanged with null to clear the selection
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onChanged(null);
+      });
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -32,7 +47,7 @@ class DropDownMenu extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: DropdownButton<String>(
-            value: selectedValue,
+            value: safeSelectedValue, // Use safe value instead of selectedValue
             hint: Text('Select Player'),
             isExpanded: true,
             underline: SizedBox(),
@@ -40,7 +55,10 @@ class DropDownMenu extends StatelessWidget {
               // Add clear option first
               DropdownMenuItem<String>(
                 value: null,
-                child: Text('No selection', style: TextStyle(color: Colors.grey)),
+                child: Text(
+                  'No selection',
+                  style: TextStyle(color: Colors.grey),
+                ),
               ),
               // Then add existing player items
               ...players.map((player) {
@@ -50,7 +68,7 @@ class DropDownMenu extends StatelessWidget {
                   value: player.id,
                   child: Text(playerName),
                 );
-              }).toList(),
+              }),
             ],
             onChanged: onChanged,
           ),

@@ -72,7 +72,9 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: StreamBuilder<DocumentSnapshot>(
-          stream: _firestoreService.streamRoomDetails(widget.roomId), // We need to add this method
+          stream: _firestoreService.streamRoomDetails(
+            widget.roomId,
+          ), // We need to add this method
           builder: (context, snapshot) {
             if (snapshot.hasData && snapshot.data!.exists) {
               final roomData = snapshot.data!.data() as Map<String, dynamic>;
@@ -132,7 +134,8 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                 if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
                   final allPlayers = snapshot.data!.docs;
                   final topPlayer = allPlayers.first;
-                  final topPlayerData = topPlayer.data() as Map<String, dynamic>;
+                  final topPlayerData =
+                      topPlayer.data() as Map<String, dynamic>;
                   final kingName = topPlayerData['name'] ?? 'Unknown Player';
 
                   // Find top weekly scorer
@@ -144,15 +147,21 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
 
                   if (playersWithWeeklyPoints.isNotEmpty) {
                     playersWithWeeklyPoints.sort((a, b) {
-                      final aWeekly = (a.data() as Map<String, dynamic>)['weeklyPoints'] ?? 0;
-                      final bWeekly = (b.data() as Map<String, dynamic>)['weeklyPoints'] ?? 0;
+                      final aWeekly =
+                          (a.data() as Map<String, dynamic>)['weeklyPoints'] ??
+                          0;
+                      final bWeekly =
+                          (b.data() as Map<String, dynamic>)['weeklyPoints'] ??
+                          0;
                       return bWeekly.compareTo(aWeekly);
                     });
 
                     final topWeeklyPlayer = playersWithWeeklyPoints.first;
-                    final topWeeklyData = topWeeklyPlayer.data() as Map<String, dynamic>;
+                    final topWeeklyData =
+                        topWeeklyPlayer.data() as Map<String, dynamic>;
                     final weeklyPoints = topWeeklyData['weeklyPoints'] ?? 0;
-                    topWeeklyScorerText = '${topWeeklyData['name']} ($weeklyPoints pts this week)';
+                    topWeeklyScorerText =
+                        '${topWeeklyData['name']} ($weeklyPoints pts this week)';
                   }
 
                   return Column(
@@ -160,16 +169,20 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                       // King Display
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             'The King of The Room is: ',
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
-                          Text(
-                            kingName,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber[700],
+                          Flexible(
+                            child: Text(
+                              kingName,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.amber[700],
+                                  ),
                             ),
                           ),
                         ],
@@ -184,11 +197,15 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                             'Top Scorer of the Week ⭐: ',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          Text(
-                            topWeeklyScorerText,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.orange[700],
+                          Flexible(
+
+                            child: Text(
+                              topWeeklyScorerText,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange[700],
+                                  ),
                             ),
                           ),
                         ],
@@ -202,7 +219,7 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                             // Brilliant Player Dropdown
                             Expanded(
                               child: DropDownMenu(
-                                label: 'The Brilliant Player 🧠',
+                                label: 'Brilliant Player 🧠',
                                 selectedValue: _selectedPlayer2,
                                 players: allPlayers,
                                 onChanged: (value) async {
@@ -223,17 +240,21 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
                               margin: EdgeInsets.symmetric(horizontal: 8),
                               child: ElevatedButton.icon(
                                 // Direct call to PlayerFunctionManager
-                                onPressed: () => _playerManager.resetWeeklyPoints(
-                                  context: context,
-                                  roomId: widget.roomId,
-                                  onSuccess: _loadInitialSelections,
-                                ),
-                                icon: Icon(Icons.refresh, size: 18),
+                                onPressed: () =>
+                                    _playerManager.resetWeeklyPoints(
+                                      context: context,
+                                      roomId: widget.roomId,
+                                      onSuccess: _loadInitialSelections,
+                                    ),
+                                icon: Icon(Icons.refresh, size: 15),
                                 label: Text("Reset"),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.orange,
                                   foregroundColor: Colors.white,
-                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
                                 ),
                               ),
                             ),
@@ -299,15 +320,17 @@ class RoomDetailScreenState extends State<RoomDetailScreen> {
 
           return FloatingActionButton(
             // Direct call to PlayerFunctionManager via RoomDialogs
-            onPressed: isRoomFull ? null : () => RoomDialogs.showAddPlayerDialog(
-              context: context,
-              playerNameController: _playerNameController,
-              onAdd: () => _playerManager.addPlayer(
-                context: context,
-                roomId: widget.roomId,
-                playerNameController: _playerNameController,
-              ),
-            ),
+            onPressed: isRoomFull
+                ? null
+                : () => RoomDialogs.showAddPlayerDialog(
+                    context: context,
+                    playerNameController: _playerNameController,
+                    onAdd: () => _playerManager.addPlayer(
+                      context: context,
+                      roomId: widget.roomId,
+                      playerNameController: _playerNameController,
+                    ),
+                  ),
             backgroundColor: isRoomFull ? Colors.grey : null,
             tooltip: isRoomFull ? 'Room is full (6 players max)' : 'Add Player',
             child: Icon(Icons.person_add),

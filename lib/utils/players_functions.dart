@@ -12,6 +12,7 @@ class PlayerFunctionManager {
     required String playerId,
     required String playerName,
     required String roomId,
+    VoidCallback? onPlayerDeleted, // Add optional callback
   }) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -38,6 +39,12 @@ class PlayerFunctionManager {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Player removed successfully')),
         );
+
+        // Call the cleanup callback if provided
+        if (onPlayerDeleted != null) {
+          onPlayerDeleted();
+        }
+
         return true;
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(

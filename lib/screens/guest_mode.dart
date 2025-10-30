@@ -186,6 +186,7 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                   }
 
                   return Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -194,11 +195,14 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                             'The King of The Room is: ',
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
-                          Text(
-                            kingName,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber[700],
+                          Flexible(
+                            child: Text(
+                              kingName,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber[700],
+                              ),
                             ),
                           ),
                         ],
@@ -211,11 +215,14 @@ class GuestRoomViewScreenState extends State<GuestRoomViewScreen> {
                             'Top Scorer of the Week ⭐: ',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          Text(
-                            topWeeklyScorerText,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.orange[700],
+                          Flexible(
+                            child: Text(
+                              topWeeklyScorerText,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange[700],
+                              ),
                             ),
                           ),
                         ],

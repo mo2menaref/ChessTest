@@ -147,12 +147,18 @@ class _PlayerListState extends State<PlayerList> {
                               pointsController: _pointsController,
                               onUpdate: () => _updatePoints(player.id),
                             );
-                          } else if (value == 'delete') {
+                          } else   if (value == 'delete') {
                             _playerManager.showDeletePlayerDialog(
                               context: context,
                               playerId: player.id,
                               playerName: playerData['name'] ?? 'Unknown Player',
                               roomId: widget.roomId,
+                              onPlayerDeleted: () {
+                                // Trigger a rebuild to clean up dropdowns
+                                if (mounted) {
+                                  setState(() {});
+                                }
+                              },
                             );
                           }
                         },
